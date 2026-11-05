@@ -40,6 +40,7 @@ bool db_init(const char *db_path){
 	return true;
 }
 
+
 void db_close(void){
 	if(db){
 		sqlite3_close(db);
@@ -66,6 +67,30 @@ bool db_create_account(const char *name, double initial_balance, const char *cur
 	}
 	sqlite3_finalize(stmt);
 	
+	return succes;
+}
+
+bool db_delete_account(const char *name){
+	const char *sql = "DELETE FROM accounts WHERE name = ?";
+	sqlite3_stmt *stmt;
+	if(sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK){
+		fprintf(stderr, "Error preparando al consulta: %s\n", sqlite3_errmsg(db));
+		return false;
+	}
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+	bool succes = true;
+	if(sqlite3_step(stmt) != SQLITE_DONE){
+		fprintf(stderr, "Error al eliminar la cuenta: %s\n", sqlite3_errmsg(db));
+		succes = false;
+	}
+	else{
+		if(sqlite3_changes(db) == 0){
+			fprintf(stderr, "La cuenta '%s' no existe.\n", name);
+			return false;
+		}
+	}
+
+	sqlite3_finalize(stmt);
 	return succes;
 }
 

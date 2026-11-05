@@ -9,6 +9,7 @@ void show_help() {
     printf("Uso: finanzas [ACCION] [CUENTA] [MONTO]\n\n");
     printf("Acciones rapidas:\n");
     printf("  -c <cuenta> [monto]   Crear una cuenta nueva (monto inicial opcional, por defecto 0)\n");
+    printf("  -d <cuenta>  				  Elimina una cuenta, esta debe no tener movimientos registrados\n");
     printf("  -i <cuenta> <monto>   Registrar un ingreso en la cuenta\n");
     printf("  -e <cuenta> <monto>   Registrar un egreso en la cuenta\n");
 		printf("  -s 										Muestra el estado de todas las cuentas\n");
@@ -25,7 +26,7 @@ void ex_cli(int argc, char *argv[]) {
     int c;
 		char *currency = "ARS";
 
-    while ((c = getopt(argc, argv, "c:i:e:m:sh")) != -1) {
+    while ((c = getopt(argc, argv, "c:d:i:e:m:sh")) != -1) {
         switch (c) {
 
             case 'c':
@@ -68,6 +69,11 @@ void ex_cli(int argc, char *argv[]) {
 						case 's':
                 action = 4;
                 break;
+						
+						case 'd':
+								action = 5;
+								account_name = optarg;
+								break;
 
             case 'h':
                 show_help();
@@ -159,6 +165,15 @@ void ex_cli(int argc, char *argv[]) {
             }
 					break;
 
+				case 5:
+            printf("Eliminando cuenta '%s'...\n", account_name);
+            if(db_delete_account(account_name)) {
+                printf("-> Cuenta eliminada con exito.\n");
+            }
+            else{
+                printf("-> Error al eliminar la cuenta.\n");
+            }
+					break;
         default:
             printf("No se especifico ninguna accion valida.\n");
             show_help();
