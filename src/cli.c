@@ -8,8 +8,9 @@
 void show_help() {
     printf("Uso: finanzas [ACCION] [CUENTA] [MONTO]\n\n");
     printf("Acciones rapidas:\n");
-    printf("  -c <cuenta> [monto]   Crear una cuenta nueva (monto inicial opcional, por defecto 0)\n");
+    printf("  -c <cuenta> ([monto] || -m [moneda])   Crear una cuenta nueva (monto inicial opcional, por defecto 0. -m le da moneda a la cuenta, no se puede usar junto a monto)\n");
     printf("  -d <cuenta>  				  Elimina una cuenta, esta debe no tener movimientos registrados\n");
+    printf("  -r <viejo> <nuevo> 		Renombra una cuenta\n");
     printf("  -i <cuenta> <monto>   Registrar un ingreso en la cuenta\n");
     printf("  -e <cuenta> <monto>   Registrar un egreso en la cuenta\n");
 		printf("  -s 										Muestra el estado de todas las cuentas\n");
@@ -21,12 +22,13 @@ void show_help() {
 
 void ex_cli(int argc, char *argv[]) {
     char *account_name = NULL;
+		char *new_account_name = NULL;
     double amount = 0.0;
     int action = 0;
     int c;
 		char *currency = "ARS";
 
-    while ((c = getopt(argc, argv, "c:d:i:e:m:sh")) != -1) {
+    while ((c = getopt(argc, argv, "c:d:i:r:e:m:sh")) != -1) {
         switch (c) {
 
             case 'c':
@@ -73,6 +75,18 @@ void ex_cli(int argc, char *argv[]) {
 						case 'd':
 								action = 5;
 								account_name = optarg;
+								break;
+
+						case 'r':
+								action = 6;
+                account_name = optarg;
+                if (optind < argc && argv[optind][0] != '-') {
+                    new_account_name = argv[optind];
+                    optind++;
+                } else {
+                    printf("Error: Debes especificar el nuevo nombre para la cuenta.\n");
+                    return;
+                }
 								break;
 
             case 'h':
@@ -174,6 +188,14 @@ void ex_cli(int argc, char *argv[]) {
                 printf("-> Error al eliminar la cuenta.\n");
             }
 					break;
+
+				case 6:
+					printf("Renombrando la cuenta...\n");
+					if(db_rename_account(account_name, new_account_name)){
+						printf("-> Cuenta renombrada con exito.\n");
+					}
+					break;
+
         default:
             printf("No se especifico ninguna accion valida.\n");
             show_help();

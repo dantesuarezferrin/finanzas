@@ -94,6 +94,29 @@ bool db_delete_account(const char *name){
 	return succes;
 }
 
+bool db_rename_account(const char *old_name, const char *new_name){
+
+	const char *sql = "UPDATE accounts SET name = ? WHERE name = ?;";
+	sqlite3_stmt *stmt;
+	if(sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK){
+		fprintf(stderr, "Error preparando la consulta: %s\n", sqlite3_errmsg(db));
+		return false;
+	}
+
+	sqlite3_bind_text(stmt, 1, new_name, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, old_name, -1, SQLITE_STATIC);
+
+	bool succes = true;
+	
+	if(sqlite3_step(stmt) != SQLITE_DONE){
+		fprintf(stderr, "Error al cambiar el nombre de la cuenta '%s': %s.\n", old_name, sqlite3_errmsg(db));
+		succes = false;
+	}
+
+	sqlite3_finalize(stmt);
+	return succes;
+}
+
 bool db_get_account_by_name(const char *name, Account *account){
 	const char *sql = "SELECT id, name, balance, currency FROM accounts WHERE name = ?";
 	sqlite3_stmt *stmt;
