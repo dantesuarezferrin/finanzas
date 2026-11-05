@@ -19,11 +19,21 @@
         gcc
         gnumake
         pkg-config
-				bear
       ];
+		};
 
-      shellHook = ''
-        echo "Entorno cargado: gcc, make, pkg-config, sqlite3, ncurses"
+		packages.${system}.default = pkgs.stdenv.mkDerivation {
+      pname = "finanzas";
+      version = "0.1.0";
+      
+      src = ./.;
+
+      nativeBuildInputs = with pkgs; [ gcc gnumake pkg-config ];
+      buildInputs = with pkgs; [ sqlite ncurses ];
+
+      # Nix inyecta la variable $out, que reemplaza al PREFIX de tu Makefile
+      installPhase = ''
+        make install PREFIX=$out
       '';
     };
   };

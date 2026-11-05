@@ -1,3 +1,4 @@
+PREFIX ?= /usr/local
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -Iinclude $(shell pkg-config --cflags sqlite3 ncurses)
 LDFLAGS = $(shell pkg-config --libs sqlite3 ncurses)
@@ -22,3 +23,7 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET) db.sqlite
+
+install: $(TARGET)
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp $(TARGET) $(DESTDIR)$(PREFIX)/bin/
