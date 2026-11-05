@@ -1,6 +1,7 @@
 PREFIX ?= /usr/local
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -Iinclude $(shell pkg-config --cflags sqlite3 ncurses)
+LIBS = $(shell pkg-config --libs sqlite3 ncursesw)
 LDFLAGS = $(shell pkg-config --libs sqlite3 ncurses)
 
 SRC_DIR = src
