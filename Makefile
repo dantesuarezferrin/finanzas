@@ -1,8 +1,7 @@
 PREFIX ?= /usr/local
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -Iinclude $(shell pkg-config --cflags sqlite3 ncurses)
+CFLAGS = -Wall -Wextra -pedantic -Iinclude $(shell pkg-config --cflags sqlite3 ncursesw)
 LIBS = $(shell pkg-config --libs sqlite3 ncursesw)
-LDFLAGS = $(shell pkg-config --libs sqlite3 ncurses)
 
 SRC_DIR = src
 BUILD_DIR = build
@@ -14,7 +13,7 @@ OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -o $@ $(LIBS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
