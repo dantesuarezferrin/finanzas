@@ -140,8 +140,8 @@ void ex_cli(int argc, char *argv[]) {
             break;
 
 				case 4:
-						Account list[10];
-            int total_accounts = db_get_all_accounts(list, 10);
+						Account *list = NULL;
+            int total_accounts = db_get_all_accounts(&list);
             
             if (total_accounts < 0) {
                 printf("Error al obtener las cuentas de la base de datos.\n");

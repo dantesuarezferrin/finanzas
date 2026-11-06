@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
 #include <time.h>
@@ -17,20 +18,21 @@ bool db_init(const char *db_path){
 	sqlite3_exec(db, "PRAGMA foreign_keys=ON", NULL, NULL, NULL);
 	const char *sql =
 		"CREATE TABLE IF NOT EXISTS accounts ("
-    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "name TEXT UNIQUE NOT NULL,"
-    "balance REAL NOT NULL DEFAULT 0.0,"
-		"currency TEXT NOT NULL DEFAULT 'ARS'"
-    ");"
-    "CREATE TABLE IF NOT EXISTS transactions ("
-    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "account_id INTEGER NOT NULL,"
-    "type INTEGER NOT NULL,"
-    "amount REAL NOT NULL,"
-    "timestamp INTEGER NOT NULL,"
-    "description TEXT,"
-    "FOREIGN KEY(account_id) REFERENCES accounts(id)"
-    ");";
+		"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+		"name TEXT UNIQUE NOT NULL,"
+		"balance REAL NOT NULL DEFAULT 0.0,"
+		"currency TEXT NOT NULL DEFAULT 'ARS',"
+		"display_order INTEGER NOT NULL DEFAULT 0"
+		");"
+		"CREATE TABLE IF NOT EXISTS transactions ("
+		"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+		"account_id INTEGER NOT NULL,"
+		"type INTEGER NOT NULL,"
+		"amount REAL NOT NULL,"
+		"timestamp INTEGER NOT NULL,"
+		"description TEXT,"
+		"FOREIGN KEY(account_id) REFERENCES accounts(id)"
+		");";
 	char *err_msg = NULL;
 	if(sqlite3_exec(db, sql, NULL, NULL, &err_msg) != SQLITE_OK){
 		fprintf(stderr, "Error SQL al crear tablas: %s\n", err_msg);
@@ -68,6 +70,41 @@ bool db_create_account(const char *name, double initial_balance, const char *cur
 	sqlite3_finalize(stmt);
 	
 	return succes;
+}
+
+bool db_create_account_at(const char *name, double initial_balance, const char *currency, int target_pos) {
+    sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+
+    const char *sql_shift = "UPDATE accounts SET display_order = display_order + 1 WHERE display_order >= ?;";
+    sqlite3_stmt *stmt_shift;
+    if (sqlite3_prepare_v2(db, sql_shift, -1, &stmt_shift, NULL) != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return false;
+    }
+    sqlite3_bind_int(stmt_shift, 1, target_pos);
+    sqlite3_step(stmt_shift);
+    sqlite3_finalize(stmt_shift);
+
+    const char *sql_insert = "INSERT INTO accounts (name, balance, currency, display_order) VALUES (?, ?, ?, ?);";
+    sqlite3_stmt *stmt_insert;
+    if (sqlite3_prepare_v2(db, sql_insert, -1, &stmt_insert, NULL) != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return false;
+    }
+    sqlite3_bind_text(stmt_insert, 1, name, -1, SQLITE_STATIC);
+    sqlite3_bind_double(stmt_insert, 2, initial_balance);
+    sqlite3_bind_text(stmt_insert, 3, currency, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt_insert, 4, target_pos);
+
+    if (sqlite3_step(stmt_insert) != SQLITE_DONE) {
+        sqlite3_finalize(stmt_insert);
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        return false;
+    }
+    sqlite3_finalize(stmt_insert);
+
+    sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
+    return true;
 }
 
 bool db_delete_account(const char *name){
@@ -214,8 +251,8 @@ bool db_add_transaction(int account_id, TransactionType type, double amount, con
 	return true;
 }
 
-int db_get_all_accounts(Account *accounts, int max_accounts){
-	const char *sql = "SELECT id, name, balance, currency FROM accounts;";
+int db_get_all_accounts(Account **accounts){
+	const char *sql = "SELECT id, name, balance, currency, display_order FROM accounts ORDER BY display_order ASC;";
 	sqlite3_stmt *stmt;
 
 	if(sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK){
@@ -224,15 +261,27 @@ int db_get_all_accounts(Account *accounts, int max_accounts){
 	}
 	
 	int count = 0;
-	while(sqlite3_step(stmt) == SQLITE_ROW && count < max_accounts){
-		accounts[count].id = sqlite3_column_int(stmt, 0);
-		strncpy(accounts[count].name, (const char *)sqlite3_column_text(stmt, 1), sizeof(accounts[count].name) - 1);
-		accounts[count].name[sizeof(accounts[count].name)-1] = '\0';
-		accounts[count].balance = sqlite3_column_double(stmt, 2);
-		strncpy(accounts[count].currency, (const char *)sqlite3_column_text(stmt, 3), sizeof(accounts[count].currency) - 1);
-		accounts[count].currency[sizeof(accounts[count].currency)-1] = '\0';
-		count++;
+	int capacity = 10;
+	Account *list = malloc(capacity *sizeof(Account));
+	while(sqlite3_step(stmt) == SQLITE_ROW){
+		if (count >= capacity) {
+      capacity *= 2;
+      list = realloc(list, capacity * sizeof(Account));
+    }
+        
+    const char *db_name = (const char *)sqlite3_column_text(stmt, 1);
+    strncpy(list[count].name, db_name ? db_name : "Desconocido", sizeof(list[count].name) - 1);
+    list[count].name[sizeof(list[count].name) - 1] = '\0'; 
+        
+    list[count].balance = sqlite3_column_double(stmt, 2);
+
+    const char *db_curr = (const char *)sqlite3_column_text(stmt, 3);
+    strncpy(list[count].currency, db_curr ? db_curr : "ARS", sizeof(list[count].currency) - 1);
+    list[count].currency[sizeof(list[count].currency) - 1] = '\0';
+        
+    count++;
 	}
 	sqlite3_finalize(stmt);
+	*accounts = list;
 	return count;
 }

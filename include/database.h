@@ -12,6 +12,7 @@ bool db_delete_account(const char *name);
 bool db_rename_account(const char *old_name, const char *new_name);
 bool db_get_account_by_name(const char *name, Account *account);
 bool db_add_transaction(int account_id, TransactionType type, double amount, const char *description);
-int db_get_all_accounts(Account accounts[], int max_accounts);
+int db_get_all_accounts(Account *accounts[]);
+bool db_create_account_at(const char *name, double initial_balance, const char *currency, int target_pos);
 
 #endif

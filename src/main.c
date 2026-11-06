@@ -3,27 +3,28 @@
 #include <string.h>
 #include "database.h"
 #include "cli.h"
+#include "tui.h"
 
 int main(int argc, char *argv[]) {
     char *home = getenv("HOME");
-    if (home == NULL) {
-        fprintf(stderr, "Error: No se pudo obtener la variable HOME.\n");
-        return 1;
+    if(home == NULL) {
+      fprintf(stderr, "Error: No se pudo obtener la variable HOME.\n");
+      return 1;
     }
 
     char db_path[256];
     snprintf(db_path, sizeof(db_path), "%s/.finanzas.sqlite", home);
 
-    if (!db_init(db_path)) {
-        fprintf(stderr, "Error critico: No se pudo iniciar la base de datos.\n");
-        return 1;
+    if(!db_init(db_path)) {
+      fprintf(stderr, "Error critico: No se pudo iniciar la base de datos.\n");
+      return 1;
     }
 
-    if (argc > 1) {
-        ex_cli(argc, argv);
+    if(argc > 1) {
+    	ex_cli(argc, argv);
     } else {
-        printf("TUI no implementada todavia. Usa --help para ver opciones CLI.\n");
-    }
+				tui_run();
+		}
 
     db_close();
     return 0;
