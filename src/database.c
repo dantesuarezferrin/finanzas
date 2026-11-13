@@ -269,6 +269,8 @@ int db_get_all_accounts(Account **accounts){
       list = realloc(list, capacity * sizeof(Account));
     }
         
+    list[count].id = sqlite3_column_int(stmt, 0); // <--- Asignar el id correctamente[cite: 7]
+
     const char *db_name = (const char *)sqlite3_column_text(stmt, 1);
     strncpy(list[count].name, db_name ? db_name : "Desconocido", sizeof(list[count].name) - 1);
     list[count].name[sizeof(list[count].name) - 1] = '\0'; 

@@ -31,7 +31,7 @@ void tui_run(){
 		mvprintw(1, 2, "=== SISTEMA DE FINANZAS ===");
 		attroff(COLOR_PAIR(1) | A_BOLD);
 
-		mvprintw(LINES - 2, 2, "[Flechas] Navegar | [c] Nueva | [d] Borrar | [q] Salir");
+		mvprintw(LINES - 2, 2, "[Flechas] Navegar | [c] Nueva | [i] Ingreso | [e] Egreso | [d] Borrar | [q] Salir");
 		if (account_count < 0) {
       mvprintw(4, 4, "Error crítico: No se pudo leer la base de datos.");
   	} else if (account_count == 0) {
@@ -93,6 +93,43 @@ void tui_run(){
 						account_count = db_get_all_accounts(&accounts);
 						
 						selected = target_position;
+					}
+				}
+				break;
+			}
+			case 'i':
+			case 'I':
+			case 'e':
+			case 'E': {
+				if (account_count > 0) {
+					char amount_str[32] = {0};
+					char desc_str[128] = {0};
+					TransactionType type = (ch == 'i' || ch == 'I') ? INCOME : EXPENSE;
+
+					echo();
+					curs_set(1);
+
+					move(LINES - 2, 0);
+					clrtoeol();
+					mvprintw(LINES - 2, 2, (type == INCOME) ? "Monto del ingreso: $ " : "Monto del egreso: $ ");
+					getnstr(amount_str, 31);
+
+					move(LINES - 2, 0);
+					clrtoeol();
+					mvprintw(LINES - 2, 2, "Descripción: ");
+					getnstr(desc_str, 127);
+
+					noecho();
+					curs_set(0);
+
+					double amount = atof(amount_str);
+					if (amount > 0) {
+						const char *final_desc = (strlen(desc_str) > 0) ? desc_str : ((type == INCOME) ? "Ingreso TUI" : "Egreso TUI");
+						if (db_add_transaction(accounts[selected].id, type, amount, final_desc)) {
+							free(accounts);
+							accounts = NULL;
+							account_count = db_get_all_accounts(&accounts);
+						}
 					}
 				}
 				break;
