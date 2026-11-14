@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+
+typedef enum {
+    FOCUS_ACCOUNTS,
+    FOCUS_TRANSACTIONS
+} TuiFocus;
 
 void tui_run(){
 	initscr();
@@ -24,25 +30,79 @@ void tui_run(){
 	int account_count = db_get_all_accounts(&accounts);
 	int selected = 0;
 
+	TuiFocus focus = FOCUS_ACCOUNTS;
+	Transaction *transactions = NULL;
+	int tx_count = 0;
+	int tx_selected = 0;
+
 	while(running){
+		if (transactions != NULL) {
+			free(transactions);
+			transactions = NULL;
+		}
+		if (account_count > 0 && selected >= 0 && selected < account_count) {
+			tx_count = db_get_transactions_by_account(accounts[selected].id, &transactions);
+		} else {
+			tx_count = 0;
+		}
+		if (tx_selected >= tx_count) {
+			tx_selected = (tx_count > 0) ? tx_count - 1 : 0;
+		}
+		if (tx_selected < 0) tx_selected = 0;
+
 		clear();
 
 		attron(COLOR_PAIR(1) | A_BOLD);
 		mvprintw(1, 2, "=== SISTEMA DE FINANZAS ===");
 		attroff(COLOR_PAIR(1) | A_BOLD);
 
-		mvprintw(LINES - 2, 2, "[Flechas] Navegar | [c] Nueva | [i] Ingreso | [e] Egreso | [d] Borrar | [q] Salir");
+		if (focus == FOCUS_ACCOUNTS) {
+			mvprintw(LINES - 2, 2, "[Flechas Arriba/Abajo] Navegar Cuentas | [Flecha Der] Ver Transacciones | [c] Nueva | [i] Ingreso | [e] Egreso | [d] Borrar | [q] Salir");
+		} else {
+			mvprintw(LINES - 2, 2, "[Flechas Arriba/Abajo] Navegar Transacciones | [Flecha Izq] Volver a Cuentas | [q] Salir");
+		}
+
 		if (account_count < 0) {
-      mvprintw(4, 4, "Error crítico: No se pudo leer la base de datos.");
-  	} else if (account_count == 0) {
-        mvprintw(4, 4, "No hay cuentas registradas. Usá la CLI para crear una.");
-    } else {
-      	for (int i = 0; i < account_count; i++) {
-          if (i == selected) attron(COLOR_PAIR(2));
-          mvprintw(4 + i, 4, " %-20s $ %10.2f ", accounts[i].name, accounts[i].balance);
-          if (i == selected) attroff(COLOR_PAIR(2));
-        }
-    }
+			mvprintw(4, 4, "Error crítico: No se pudo leer la base de datos.");
+		} else if (account_count == 0) {
+			mvprintw(4, 4, "No hay cuentas registradas. Usá la CLI para crear una.");
+		} else {
+			mvprintw(3, 4, "CUENTAS:");
+			for (int i = 0; i < account_count; i++) {
+				bool is_highlighted = (focus == FOCUS_ACCOUNTS && i == selected);
+				if (is_highlighted) attron(COLOR_PAIR(2));
+				mvprintw(4 + i, 4, " %-15s $ %9.2f ", accounts[i].name, accounts[i].balance);
+				if (is_highlighted) attroff(COLOR_PAIR(2));
+			}
+
+			int tx_start_x = 38;
+			mvprintw(3, tx_start_x, "=== TRANSACCIONES (%s) ===", account_count > 0 ? accounts[selected].name : "");
+			
+			if (tx_count < 0) {
+				mvprintw(4, tx_start_x, "Error al cargar transacciones.");
+			} else if (tx_count == 0) {
+				mvprintw(4, tx_start_x, "No hay transacciones registradas.");
+			} else {
+				for (int i = 0; i < tx_count && (4 + i < LINES - 3); i++) {
+					bool is_tx_highlighted = (focus == FOCUS_TRANSACTIONS && i == tx_selected);
+					if (is_tx_highlighted) attron(COLOR_PAIR(2));
+
+					time_t t = (time_t)transactions[i].time;
+					struct tm *tm_info = localtime(&t);
+					char date_str[16];
+					strftime(date_str, sizeof(date_str), "%d/%m %H:%M", tm_info);
+
+					char sign = (transactions[i].type == INCOME) ? '+' : '-';
+					mvprintw(4 + i, tx_start_x, " %s | %-15s | %c$%.2f ", 
+						date_str, 
+						transactions[i].desc, 
+						sign, 
+						transactions[i].amount);
+
+					if (is_tx_highlighted) attroff(COLOR_PAIR(2));
+				}
+			}
+		}
 		refresh();
 
 		ch = getch();
@@ -52,56 +112,54 @@ void tui_run(){
 				running = false;
 				break;
 			case 'c':
-			case 'C': { 
-				char new_name[64] = {0};
-				char balance_str[32] = {0};
-				char currency_str[8] = {0};
+			case 'C':
+				if (focus == FOCUS_ACCOUNTS) {
+					char new_name[64] = {0};
+					char balance_str[32] = {0};
+					char currency_str[8] = {0};
 
-				echo();
-				curs_set(1);
+					echo();
+					curs_set(1);
 
-				move(LINES - 2, 0); 
-				clrtoeol();         
-				mvprintw(LINES - 2, 2, "Nombre de la nueva cuenta: ");
-				getnstr(new_name, 63); 
+					move(LINES - 2, 0); 
+					clrtoeol();         
+					mvprintw(LINES - 2, 2, "Nombre de la nueva cuenta: ");
+					getnstr(new_name, 63); 
 
-				move(LINES - 2, 0);
-				clrtoeol();
-				mvprintw(LINES - 2, 2, "Saldo inicial: $ ");
-				getnstr(balance_str, 31);
+					move(LINES - 2, 0);
+					clrtoeol();
+					mvprintw(LINES - 2, 2, "Saldo inicial: $ ");
+					getnstr(balance_str, 31);
 
-				move(LINES - 2, 0);
-				clrtoeol();
-				mvprintw(LINES - 2, 2, "Moneda (Enter para ARS): ");
-				getnstr(currency_str, 7);
+					move(LINES - 2, 0);
+					clrtoeol();
+					mvprintw(LINES - 2, 2, "Moneda (Enter para ARS): ");
+					getnstr(currency_str, 7);
 
-				noecho();
-				curs_set(0);
+					noecho();
+					curs_set(0);
 
-				if (strlen(new_name) > 0) {
-					double new_balance = atof(balance_str);
-					
-					if (strlen(currency_str) == 0) {
-						strcpy(currency_str, "ARS");
-					}
-					
-					int target_position = (account_count > 0) ? (selected + 1) : 0;
+					if (strlen(new_name) > 0) {
+						double new_balance = atof(balance_str);
+						if (strlen(currency_str) == 0) {
+							strcpy(currency_str, "ARS");
+						}
+						int target_position = (account_count > 0) ? (selected + 1) : 0;
 
-					if (db_create_account_at(new_name, new_balance, currency_str, target_position)) {
-						free(accounts);
-						accounts = NULL;
-						account_count = db_get_all_accounts(&accounts);
-						
-						selected = target_position;
+						if (db_create_account_at(new_name, new_balance, currency_str, target_position)) {
+							free(accounts);
+							accounts = NULL;
+							account_count = db_get_all_accounts(&accounts);
+							selected = target_position;
+						}
 					}
 				}
 				break;
-			}
 			case 'i':
 			case 'I':
 			case 'e':
-			case 'E': {
-				if (account_count > 0) {
+			case 'E':
+				if (focus == FOCUS_ACCOUNTS && account_count > 0) {
 					char amount_str[32] = {0};
 					char desc_str[128] = {0};
 					TransactionType type = (ch == 'i' || ch == 'I') ? INCOME : EXPENSE;
@@ -133,10 +191,9 @@ void tui_run(){
 					}
 				}
 				break;
-			}
 			case 'd':
 			case 'D':
-				if (account_count > 0) {
+				if (focus == FOCUS_ACCOUNTS && account_count > 0) {
 					if (db_delete_account(accounts[selected].name)) {
 						free(accounts);
 						accounts = NULL;
@@ -148,17 +205,43 @@ void tui_run(){
 				}
 				break;
 			case KEY_UP:
-				if (selected > 0) {
-					selected--;
+				if (focus == FOCUS_ACCOUNTS) {
+					if (selected > 0) {
+						selected--;
+						tx_selected = 0;
+					}
+				} else if (focus == FOCUS_TRANSACTIONS) {
+					if (tx_selected > 0) {
+						tx_selected--;
+					}
 				}
 				break;
 			case KEY_DOWN:
-				if (selected < account_count - 1) {
-					selected++;
+				if (focus == FOCUS_ACCOUNTS) {
+					if (selected < account_count - 1) {
+						selected++;
+						tx_selected = 0;
+					}
+				} else if (focus == FOCUS_TRANSACTIONS) {
+					if (tx_selected < tx_count - 1) {
+						tx_selected++;
+					}
+				}
+				break;
+			case KEY_RIGHT:
+				if (focus == FOCUS_ACCOUNTS && tx_count > 0) {
+					focus = FOCUS_TRANSACTIONS;
+				}
+				break;
+			case KEY_LEFT:
+				if (focus == FOCUS_TRANSACTIONS) {
+					focus = FOCUS_ACCOUNTS;
 				}
 				break;
 		}
 	}
 
+	if (transactions != NULL) free(transactions);
+	if (accounts != NULL) free(accounts);
 	endwin();
 }

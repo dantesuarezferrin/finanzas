@@ -287,3 +287,39 @@ int db_get_all_accounts(Account **accounts){
 	*accounts = list;
 	return count;
 }
+
+int db_get_transactions_by_account(int account_id, Transaction **transactions_out) {
+    const char *sql = "SELECT id, account_id, type, amount, timestamp, description FROM transactions WHERE account_id = ? ORDER BY timestamp DESC, id DESC;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return -1;
+    }
+    sqlite3_bind_int(stmt, 1, account_id);
+
+    int capacity = 10;
+    int count = 0;
+    Transaction *list = malloc(capacity * sizeof(Transaction));
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (count >= capacity) {
+            capacity *= 2;
+            list = realloc(list, capacity * sizeof(Transaction));
+        }
+        list[count].id = sqlite3_column_int(stmt, 0);
+        list[count].account_id = sqlite3_column_int(stmt, 1);
+        list[count].type = (TransactionType)sqlite3_column_int(stmt, 2);
+        list[count].amount = sqlite3_column_double(stmt, 3);
+        list[count].time = sqlite3_column_int64(stmt, 4);
+        
+        const char *desc = (const char *)sqlite3_column_text(stmt, 5);
+        strncpy(list[count].desc, desc ? desc : "", sizeof(list[count].desc) - 1);
+        list[count].desc[sizeof(list[count].desc) - 1] = '\0';
+
+        count++;
+    }
+    sqlite3_finalize(stmt);
+    *transactions_out = list;
+    return count;
+}
+
+

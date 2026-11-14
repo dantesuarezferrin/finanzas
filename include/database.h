@@ -14,5 +14,6 @@ bool db_get_account_by_name(const char *name, Account *account);
 bool db_add_transaction(int account_id, TransactionType type, double amount, const char *description);
 int db_get_all_accounts(Account *accounts[]);
 bool db_create_account_at(const char *name, double initial_balance, const char *currency, int target_pos);
+int db_get_transactions_by_account(int account_id, Transaction **transactions_out);
 
 #endif
