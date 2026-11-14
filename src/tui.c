@@ -174,7 +174,7 @@ void tui_run(){
 
 					move(LINES - 2, 0);
 					clrtoeol();
-					mvprintw(LINES - 2, 2, "Descripción: ");
+					mvprintw(LINES - 2, 2, "Descripcion: ");
 					getnstr(desc_str, 127);
 
 					noecho();
